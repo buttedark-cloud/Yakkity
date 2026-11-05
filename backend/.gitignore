@@ -1,0 +1,16 @@
+# Dart and Flint build directories
+.dart_tool/
+pubspec_overrides.yaml
+build/
+
+# Flint UI browser build output. The app build/start flow regenerates these.
+public/assets/js/flint-ui/
+public/assets/css/flint-ui/
+public/flint-sw.js
+public/flint-sw.js.gz
+
+# Logs and scratch files
+*.log
+.server.*
+.env
+

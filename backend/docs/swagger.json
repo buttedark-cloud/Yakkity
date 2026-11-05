@@ -1,0 +1,168 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Flint API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/auth/send-code": {
+      "post": {
+        "summary": "Send verification code to a phone number",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "Code sent"
+          },
+          "422": {
+            "description": "Invalid phone number"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/verify": {
+      "post": {
+        "summary": "Verify the code and get a JWT token",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed in"
+          },
+          "401": {
+            "description": "Invalid or expired code"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Current user (requires Bearer token)",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "Current user"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/chat/users/lookup": {
+      "get": {
+        "summary": "Find a user by phone number",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/chat/messages/{userId}": {
+      "get": {
+        "summary": "Message history with a user",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: userId"
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    }
+  }
+}
