@@ -9,11 +9,11 @@ void main() {
     enableSwaggerDocs: true,
   );
 
-  // Mount the main AppRoutes
-  app.routes(AppRoutes());
+  // Разрешаем запросы из браузера (Flutter Web на другом порту)
+  app.use(CorsMiddleware());
 
+  app.routes(AppRoutes());
   app.websocket('/ws/chat', chatSocket);
 
-  // Start the server
   app.listen(hotReload: true);
 }
