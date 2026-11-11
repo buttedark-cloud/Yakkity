@@ -30,5 +30,10 @@ class AuthRoutes extends RouteGroup {
     /// @response 200 Current user
     /// @response 401 Unauthorized
     auth.get('/me', (c) => c.me());
+
+    /// @summary Set display name
+    /// @auth bearer
+    /// @body {"name": "Vera"}
+    auth.put('/profile', (c) => c.updateProfile());
   }
 }

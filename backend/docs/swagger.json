@@ -104,6 +104,39 @@
         ]
       }
     },
+    "/auth/profile": {
+      "put": {
+        "summary": "Set display name",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/chat/users/lookup": {
       "get": {
         "summary": "Find a user by phone number",
@@ -142,6 +175,35 @@
               "type": "string"
             },
             "description": "Path parameter: userId"
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/chat/peers/{id}": {
+      "get": {
+        "summary": "Get a user by id",
+        "tags": [
+          "Default"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Path parameter: id"
           }
         ],
         "security": [

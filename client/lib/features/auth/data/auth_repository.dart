@@ -3,11 +3,15 @@ import 'package:dio/dio.dart';
 import 'package:yakkity/core/storage/token_storage.dart';
 
 class AuthUser {
-  const AuthUser({required this.id, required this.phone});
+  const AuthUser({required this.id, required this.phone, this.name});
   final int id;
   final String phone;
+  final String? name;
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(id: json['id'] as int, phone: json['phone'] as String);
+  bool get hasName => name != null && name!.trim().isNotEmpty;
+
+  factory AuthUser.fromJson(Map<String, dynamic> json) =>
+      AuthUser(id: json['id'] as int, phone: json['phone'] as String, name: json['name'] as String?);
 }
 
 class AuthRepository {
@@ -19,6 +23,11 @@ class AuthRepository {
   Future<String?> sendCode(String phone) async {
     final response = await _dio.post('/auth/send-code', data: {'phone': phone});
     return response.data['devCode'] as String?;
+  }
+
+  Future<AuthUser> updateName(String name) async {
+    final response = await _dio.put('/auth/profile', data: {'name': name});
+    return AuthUser.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
   Future<AuthUser> verify(String phone, String code) async {

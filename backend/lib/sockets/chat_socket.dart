@@ -15,7 +15,7 @@ void chatSocket(Context ctx) {
 
   if (payload == null) {
     socket.emit('error', {'message': 'Authentication required.'});
-    return; // обработчики не регистрируем: неавторизованный ничего не сможет
+    return;
   }
 
   final userId = payload['id'];
@@ -31,8 +31,9 @@ void chatSocket(Context ctx) {
 
       final to = int.tryParse(data['to'].toString());
       final text = data['text']?.toString().trim() ?? '';
+      final clientId = data['clientId']?.toString();
 
-      if (to == null || text.isEmpty || text.length > 2000) {
+      if (to == null || text.isEmpty || text.length > 2000 || (clientId != null && clientId.length > 64)) {
         socket.emit('error', {'message': 'Invalid message.'});
         return;
       }
@@ -47,22 +48,42 @@ void chatSocket(Context ctx) {
         return;
       }
 
-      // Сначала сохраняем в базу
-      final saved = await DB.query(
-        "INSERT INTO messages (sender_id, receiver_id, text, created_at) "
-        "VALUES (?, ?, ?, NOW()) "
-        "RETURNING id, sender_id, receiver_id, text, created_at",
-        positionalParams: [userId, to, text],
-      );
-      final message = _toJson(saved.first);
+      Map<String, dynamic>? message;
+      var duplicate = false;
 
-      // Потом доставляем получателю (если он онлайн, сообщение придёт сразу)
-      socket.emitToRoom('user:$to', 'new_message', message);
+      // Это сообщение мы уже сохраняли? (повторная отправка после обрыва связи)
+      if (clientId != null) {
+        final existing = await DB.query(
+          "SELECT id, sender_id, receiver_id, text, created_at "
+          "FROM messages WHERE sender_id = ? AND client_id = ?",
+          positionalParams: [userId, clientId],
+        );
+        if (existing.isNotEmpty) {
+          message = _toJson(existing.first);
+          duplicate = true;
+        }
+      }
 
-      // И подтверждаем отправителю, возвращая его clientId
+      // Иначе сохраняем в базу
+      if (message == null) {
+        final saved = await DB.query(
+          "INSERT INTO messages (sender_id, receiver_id, text, client_id, created_at) "
+          "VALUES (?, ?, ?, ?, NOW()) "
+          "RETURNING id, sender_id, receiver_id, text, created_at",
+          positionalParams: [userId, to, text, clientId],
+        );
+        message = _toJson(saved.first);
+      }
+
+      // Получателю доставляем только новое сообщение, повторы не пересылаем
+      if (!duplicate) {
+        socket.emitToRoom('user:$to', 'new_message', message);
+      }
+
+      // Отправителю подтверждаем в любом случае
       socket.emit('message_sent', {
         ...message,
-        'clientId': data['clientId'],
+        'clientId': clientId,
       });
     } catch (e) {
       socket.emit('error', {'message': 'Failed to send message.'});

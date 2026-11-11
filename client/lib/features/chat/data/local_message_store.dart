@@ -1,6 +1,8 @@
 import 'package:sembast/sembast.dart';
 
 import 'package:yakkity/features/chat/domain/chat_message.dart';
+import 'package:yakkity/features/chat/domain/chat_peer.dart';
+import 'package:yakkity/features/chat/domain/conversation_summary.dart';
 
 class LocalMessageStore {
   LocalMessageStore(this._db);
@@ -69,4 +71,35 @@ class LocalMessageStore {
     );
     return snaps.map((s) => ChatMessage.fromMap(s.value)).toList();
   }
+
+  // ---- Собеседники ----
+  final _peers = intMapStoreFactory.store('peers');
+
+  Future<void> putPeer(ChatPeer peer) => _peers.record(peer.id).put(_db, peer.toMap());
+
+  Stream<Map<int, ChatPeer>> watchPeers() =>
+      _peers.query().onSnapshots(_db).map((snaps) => {for (final s in snaps) s.key: ChatPeer.fromMap(s.value)});
+
+  // ---- Список чатов ----
+  /// Из всех моих сообщений берём по одному последнему на собеседника
+  Stream<List<ConversationSummary>> watchConversations(int me) => _store
+      .query(
+        finder: Finder(
+          filter: Filter.or([Filter.equals('senderId', me), Filter.equals('receiverId', me)]),
+          sortOrders: [SortOrder('createdAt', false)],
+        ),
+      )
+      .onSnapshots(_db)
+      .map((snaps) {
+        final seen = <int>{};
+        final result = <ConversationSummary>[];
+        for (final s in snaps) {
+          final m = ChatMessage.fromMap(s.value);
+          final peerId = m.senderId == me ? m.receiverId : m.senderId;
+          if (seen.add(peerId)) {
+            result.add(ConversationSummary(peerId: peerId, last: m));
+          }
+        }
+        return result;
+      });
 }

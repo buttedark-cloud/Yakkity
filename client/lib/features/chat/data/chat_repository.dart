@@ -2,15 +2,13 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:yakkity/core/network/chat_socket.dart';
+import 'package:yakkity/features/chat/data/local_message_store.dart';
 import 'package:yakkity/features/chat/domain/chat_message.dart';
+import 'package:yakkity/features/chat/domain/chat_peer.dart';
+import 'package:yakkity/features/chat/domain/conversation_summary.dart';
 
-import 'local_message_store.dart';
-
-class ChatPeer {
-  const ChatPeer({required this.id, required this.phone});
-  final int id;
-  final String phone;
-}
+// Экраны могут импортировать ChatPeer оттуда же, откуда и репозиторий
+export 'package:yakkity/features/chat/domain/chat_peer.dart';
 
 class ChatRepository {
   ChatRepository(this._dio, this._socket, this._store);
@@ -26,6 +24,7 @@ class ChatRepository {
   StreamSubscription<SocketEvent>? _eventsSub;
   StreamSubscription<SocketStatus>? _statusSub;
   final _ackTimers = <String, Timer>{};
+  final _peerRequested = <int>{};
 
   Stream<SocketStatus> get connection => _socket.status;
   SocketStatus get connectionStatus => _socket.currentStatus;
@@ -53,6 +52,7 @@ class ChatRepository {
       t.cancel();
     }
     _ackTimers.clear();
+    _peerRequested.clear();
     await _socket.disconnect();
   }
 
@@ -72,8 +72,12 @@ class ChatRepository {
     }
   }
 
-  /// Экран слушает только этот поток, то есть базу
+  /// Экран слушает только эти потоки, то есть базу
   Stream<List<ChatMessage>> watch(int me, int peerId) => _store.watchConversation(me, peerId);
+
+  Stream<List<ConversationSummary>> watchConversations(int me) => _store.watchConversations(me);
+
+  Stream<Map<int, ChatPeer>> watchPeers() => _store.watchPeers();
 
   /// Подтянуть историю с сервера и записать в базу
   Future<void> refreshHistory(int peerId) async {
@@ -121,12 +125,27 @@ class ChatRepository {
     }
   }
 
+  /// Узнать имя и номер собеседника по id (раз за запуск приложения).
+  /// Результат падает в базу, а список чатов обновится сам.
+  Future<void> ensurePeer(int id) async {
+    if (_peerRequested.contains(id)) return;
+    _peerRequested.add(id);
+    try {
+      final response = await _dio.get('/chat/peers/$id');
+      final data = response.data['data'] as Map<String, dynamic>;
+      await _store.putPeer(ChatPeer.fromJson(data));
+    } catch (_) {
+      _peerRequested.remove(id); // не вышло, попробуем при следующем обновлении
+    }
+  }
+
   /// Найти пользователя по номеру. null, если такого нет.
   Future<ChatPeer?> findUser(String phone) async {
     try {
       final response = await _dio.get('/chat/users/lookup', queryParameters: {'phone': phone});
-      final data = response.data['data'] as Map<String, dynamic>;
-      return ChatPeer(id: data['id'] as int, phone: data['phone'] as String);
+      final peer = ChatPeer.fromJson(response.data['data'] as Map<String, dynamic>);
+      await _store.putPeer(peer);
+      return peer;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       rethrow;

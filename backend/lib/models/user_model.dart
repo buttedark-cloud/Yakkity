@@ -4,7 +4,7 @@ class User extends Model<User> {
   User() : super(() => User());
 
   String get phone => getAttribute('phone');
-  String? get profilePicUrl => getAttribute('profile_pic_url');
+  String? get name => getAttribute('name');
   DateTime? get createdAt => getAttribute('created_at');
 
   @override
@@ -13,8 +13,8 @@ class User extends Model<User> {
         columns: [
           Column(name: 'id', type: ColumnType.integer, isPrimaryKey: true, isAutoIncrement: true),
           Column(name: 'phone', type: ColumnType.string, length: 20, isUnique: true),
+          Column(name: 'name', type: ColumnType.string, length: 50, isNullable: true),
           Column(name: 'created_at', type: ColumnType.datetime, isNullable: true),
-          Column(name: 'profile_pic_url', type: ColumnType.string, isNullable: true),
         ],
       );
 }

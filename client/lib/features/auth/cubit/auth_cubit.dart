@@ -52,6 +52,16 @@ class AuthCubit extends Cubit<AuthState> {
 
   void backToPhone() => emit(state.copyWith(step: AuthStep.phone));
 
+  Future<void> saveName(String name) async {
+    emit(state.copyWith(loading: true));
+    try {
+      final user = await _repo.updateName(name);
+      emit(state.copyWith(user: user));
+    } catch (e) {
+      emit(state.copyWith(error: apiErrorMessage(e)));
+    }
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     emit(const AuthState(status: AuthStatus.unauthenticated));

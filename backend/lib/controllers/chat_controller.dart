@@ -23,7 +23,7 @@ class ChatController extends Controller {
     }
 
     final users = await DB.query(
-      "SELECT id, phone FROM users WHERE phone = ?",
+      "SELECT id, phone, name FROM users WHERE phone = ?",
       positionalParams: ['+$digits'],
     );
     if (users.isEmpty) {
@@ -56,5 +56,26 @@ class ChatController extends Controller {
     );
 
     return res.json({"status": "success", "data": rows});
+  }
+
+  /// GET /chat/peers/:id   (узнать номер и имя по id)
+  Future<Response> getPeer() async {
+    if (_currentUserId() == null) {
+      return res.status(401).json({"status": "error", "message": "Authentication required."});
+    }
+
+    final id = int.tryParse(req.params['id'] ?? '');
+    if (id == null) {
+      return res.status(400).json({"status": "error", "message": "Invalid user id."});
+    }
+
+    final users = await DB.query(
+      "SELECT id, phone, name FROM users WHERE id = ?",
+      positionalParams: [id],
+    );
+    if (users.isEmpty) {
+      return res.status(404).json({"status": "error", "message": "User not found."});
+    }
+    return res.json({"status": "success", "data": users.first});
   }
 }

@@ -20,5 +20,9 @@ class ChatRoutes extends RouteGroup {
     /// @summary Message history with a user
     /// @auth bearer
     chat.get('/messages/:userId', (c) => c.history()).useMiddleware(AuthMiddleware());
+
+    /// @summary Get a user by id
+    /// @auth bearer
+    chat.get('/peers/:id', (c) => c.getPeer()).useMiddleware(AuthMiddleware());
   }
 }

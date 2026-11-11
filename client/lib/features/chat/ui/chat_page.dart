@@ -32,7 +32,7 @@ class _ChatView extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: Text(peer.phone)),
+      appBar: AppBar(title: Text(peer.displayName)),
       body: Column(
         children: [
           // Плашка появляется, когда нет связи с сервером
