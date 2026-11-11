@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 
-import '../config/app_config.dart';
-import '../storage/token_storage.dart';
-import 'session_events.dart';
+import 'package:yakkity/core/config/app_config.dart';
+import 'package:yakkity/core/storage/token_storage.dart';
+import 'package:yakkity/core/network/session_events.dart';
 
 Dio createDio(TokenStorage storage, SessionEvents session) {
   final dio = Dio(

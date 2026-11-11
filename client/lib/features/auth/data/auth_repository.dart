@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../../../core/storage/token_storage.dart';
+import 'package:yakkity/core/storage/token_storage.dart';
 
 class AuthUser {
   const AuthUser({required this.id, required this.phone});

@@ -1,5 +1,4 @@
 import 'package:flint_dart/flint_dart.dart';
-import 'package:flint_dart/schema.dart'; // <-- Импорт схемы
 
 class User extends Model<User> {
   User() : super(() => User());

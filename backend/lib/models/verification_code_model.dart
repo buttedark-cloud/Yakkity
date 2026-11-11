@@ -1,5 +1,4 @@
 import 'package:flint_dart/flint_dart.dart';
-import 'package:flint_dart/schema.dart'; // <-- Импорт схемы
 
 class VerificationCode extends Model<VerificationCode> {
   VerificationCode() : super(() => VerificationCode());

@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/network/api_error.dart';
-import '../../../core/network/session_events.dart';
-import '../data/auth_repository.dart';
-import 'auth_state.dart';
+import 'package:yakkity/core/network/api_error.dart';
+import 'package:yakkity/core/network/session_events.dart';
+import 'package:yakkity/features/auth/data/auth_repository.dart';
+import 'package:yakkity/features/auth/cubit/auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit(this._repo, SessionEvents session) : super(const AuthState()) {

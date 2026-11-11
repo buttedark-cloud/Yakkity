@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../core/theme/app_theme.dart';
-import '../cubit/auth_cubit.dart';
-import '../cubit/auth_state.dart';
+import 'package:yakkity/core/theme/app_theme.dart';
+import 'package:yakkity/features/auth/cubit/auth_cubit.dart';
+import 'package:yakkity/features/auth/cubit/auth_state.dart';
 
 class CodePage extends StatefulWidget {
   const CodePage({super.key});

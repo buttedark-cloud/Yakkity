@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../data/auth_repository.dart';
+import 'package:yakkity/features/auth/data/auth_repository.dart';
 
 enum AuthStatus { checking, unauthenticated, authenticated }
 
