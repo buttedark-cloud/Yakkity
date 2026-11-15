@@ -78,6 +78,12 @@ class ChatRepository {
   Stream<List<ConversationSummary>> watchConversations(int me) => _store.watchConversations(me);
 
   Stream<Map<int, ChatPeer>> watchPeers() => _store.watchPeers();
+  Stream<Map<int, int>> watchReads(int me) => _store.watchReads(me);
+
+  Future<void> markRead(int me, int peerId, int upToMs) => _store.markRead(me, peerId, upToMs);
+
+  Future<List<ChatMessage>> searchMessages(int me, String query) => _store.searchMessages(me, query);
+  Stream<({int total, int mine})> watchMessageCounts(int me) => _store.watchMessageCounts(me);
 
   /// Подтянуть историю с сервера и записать в базу
   Future<void> refreshHistory(int peerId) async {

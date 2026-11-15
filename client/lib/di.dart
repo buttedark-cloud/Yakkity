@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:yakkity/features/chat/data/local_message_store.dart';
+import 'package:yakkity/core/storage/settings_store.dart';
+import 'package:yakkity/core/theme/theme_cubit.dart';
 
 import 'core/network/chat_socket.dart';
 import 'features/chat/data/chat_repository.dart';
@@ -25,4 +27,6 @@ Future<void> setupDi() async {
   getIt.registerLazySingleton<LocalMessageStore>(() => LocalMessageStore(getIt<Database>()));
   getIt.registerLazySingleton<ChatSocket>(() => ChatSocket(getIt<TokenStorage>(), getIt<SessionEvents>()));
   getIt.registerLazySingleton<ChatRepository>(() => ChatRepository(getIt<Dio>(), getIt<ChatSocket>(), getIt<LocalMessageStore>()));
+  getIt.registerSingleton<SettingsStore>(SettingsStore(getIt<Database>()));
+  getIt.registerSingleton<ThemeCubit>(ThemeCubit(getIt<SettingsStore>()));
 }

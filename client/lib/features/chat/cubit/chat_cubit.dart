@@ -12,7 +12,10 @@ class ChatCubit extends Cubit<ChatState> {
     : _repo = repo,
       super(ChatState(connection: repo.connectionStatus)) {
     // Сообщения экран берёт только из базы
-    _messagesSub = _repo.watch(me, peerId).listen((messages) => emit(state.copyWith(messages: messages)));
+    _messagesSub = _repo.watch(me, peerId).listen((messages) {
+      emit(state.copyWith(messages: messages));
+      _markRead(messages);
+    });
 
     _statusSub = _repo.connection.listen((status) {
       emit(state.copyWith(connection: status));
@@ -21,6 +24,17 @@ class ChatCubit extends Cubit<ChatState> {
     });
 
     _loadHistory();
+  }
+
+  /// Пока чат открыт, всё входящее считается прочитанным
+  void _markRead(List<ChatMessage> messages) {
+    for (final m in messages) {
+      // сообщения идут от новых к старым: берём самое новое входящее
+      if (m.senderId == peerId) {
+        _repo.markRead(me, peerId, m.createdAt.millisecondsSinceEpoch);
+        return;
+      }
+    }
   }
 
   final ChatRepository _repo;

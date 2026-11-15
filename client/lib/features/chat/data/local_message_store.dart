@@ -82,6 +82,7 @@ class LocalMessageStore {
 
   // ---- Список чатов ----
   /// Из всех моих сообщений берём по одному последнему на собеседника
+  /// и запоминаем время всех входящих (для подсчёта непрочитанных).
   Stream<List<ConversationSummary>> watchConversations(int me) => _store
       .query(
         finder: Finder(
@@ -91,15 +92,59 @@ class LocalMessageStore {
       )
       .onSnapshots(_db)
       .map((snaps) {
-        final seen = <int>{};
-        final result = <ConversationSummary>[];
+        final last = <int, ChatMessage>{};
+        final incoming = <int, List<int>>{};
         for (final s in snaps) {
           final m = ChatMessage.fromMap(s.value);
           final peerId = m.senderId == me ? m.receiverId : m.senderId;
-          if (seen.add(peerId)) {
-            result.add(ConversationSummary(peerId: peerId, last: m));
+          last.putIfAbsent(peerId, () => m); // первым идёт самое новое
+          if (m.senderId != me) {
+            (incoming[peerId] ??= []).add(m.createdAt.millisecondsSinceEpoch);
           }
         }
-        return result;
+        return [for (final e in last.entries) ConversationSummary(peerId: e.key, last: e.value, incoming: incoming[e.key] ?? const [])];
       });
+
+  // ---- Отметки «прочитано до» ----
+  final _reads = StoreRef<String, int>('reads');
+
+  Stream<Map<int, int>> watchReads(int me) => _reads
+      .query()
+      .onSnapshots(_db)
+      .map(
+        (snaps) => {
+          for (final s in snaps)
+            if (s.key.startsWith('$me:')) int.parse(s.key.substring('$me:'.length)): s.value,
+        },
+      );
+
+  Future<void> markRead(int me, int peerId, int upToMs) => _db.transaction((txn) async {
+    final key = '$me:$peerId';
+    final current = await _reads.record(key).get(txn) ?? 0;
+    if (upToMs > current) await _reads.record(key).put(txn, upToMs);
+  });
+
+  // ---- Поиск по тексту сообщений ----
+  Future<List<ChatMessage>> searchMessages(int me, String query, {int limit = 30}) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    final snaps = await _store.find(
+      _db,
+      finder: Finder(
+        filter: Filter.and([
+          Filter.or([Filter.equals('senderId', me), Filter.equals('receiverId', me)]),
+          Filter.custom((record) => ((record['text'] as String?) ?? '').toLowerCase().contains(q)),
+        ]),
+        sortOrders: [SortOrder('createdAt', false)],
+        limit: limit,
+      ),
+    );
+    return snaps.map((s) => ChatMessage.fromMap(s.value)).toList();
+  }
+
+  /// Сколько сообщений в моих переписках и сколько из них мои
+  Stream<({int total, int mine})> watchMessageCounts(int me) => _store
+      .query(finder: Finder(filter: Filter.or([Filter.equals('senderId', me), Filter.equals('receiverId', me)])))
+      .onSnapshots(_db)
+      .map((snaps) => (total: snaps.length, mine: snaps.where((s) => s.value['senderId'] == me).length));
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:yakkity/core/network/chat_socket.dart';
 import 'package:yakkity/core/theme/app_theme.dart';
+import 'package:yakkity/core/utils/date_format.dart';
 import 'package:yakkity/di.dart';
 import 'package:yakkity/features/auth/cubit/auth_cubit.dart';
 import 'package:yakkity/features/chat/cubit/chat_cubit.dart';
@@ -22,6 +23,11 @@ class ChatPage extends StatelessWidget {
     );
   }
 }
+
+/// Два соседних сообщения считаются одной «группой»:
+/// тот же автор, тот же день, пауза меньше 5 минут
+bool _sameGroup(ChatMessage a, ChatMessage b) =>
+    a.senderId == b.senderId && isSameDay(a.createdAt, b.createdAt) && a.createdAt.difference(b.createdAt).abs().inMinutes < 5;
 
 class _ChatView extends StatelessWidget {
   const _ChatView({required this.peer, required this.me});
@@ -58,7 +64,8 @@ class _ChatView extends StatelessWidget {
           Expanded(
             child: BlocBuilder<ChatCubit, ChatState>(
               builder: (context, state) {
-                if (state.messages.isEmpty) {
+                final messages = state.messages; // новые сообщения первыми
+                if (messages.isEmpty) {
                   return Center(
                     child: state.loadingHistory ? const CircularProgressIndicator() : const Text('Сообщений пока нет. Напиши первым!'),
                   );
@@ -66,11 +73,31 @@ class _ChatView extends StatelessWidget {
                 // reverse: список растёт снизу вверх, новое сообщение всегда внизу
                 return ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  itemCount: state.messages.length,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  itemCount: messages.length,
                   itemBuilder: (context, i) {
-                    final m = state.messages[i];
-                    return MessageBubble(message: m, isMine: m.senderId == me, onRetry: () => context.read<ChatCubit>().retry(m));
+                    final m = messages[i];
+                    // На экране newer ниже сообщения, older выше
+                    final newer = i > 0 ? messages[i - 1] : null;
+                    final older = i < messages.length - 1 ? messages[i + 1] : null;
+
+                    final startsDay = older == null || !isSameDay(older.createdAt, m.createdAt);
+                    final firstInGroup = startsDay || !_sameGroup(older, m);
+                    final lastInGroup = newer == null || !_sameGroup(m, newer);
+
+                    return Column(
+                      key: ValueKey(m.clientId),
+                      children: [
+                        if (startsDay) _DayChip(label: dayLabel(m.createdAt)),
+                        MessageBubble(
+                          message: m,
+                          isMine: m.senderId == me,
+                          firstInGroup: firstInGroup,
+                          lastInGroup: lastInGroup,
+                          onRetry: () => context.read<ChatCubit>().retry(m),
+                        ),
+                      ],
+                    );
                   },
                 );
               },
@@ -83,11 +110,39 @@ class _ChatView extends StatelessWidget {
   }
 }
 
+/// Плашка с датой посреди чата
+class _DayChip extends StatelessWidget {
+  const _DayChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
+        child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+      ),
+    );
+  }
+}
+
 class MessageBubble extends StatelessWidget {
-  const MessageBubble({super.key, required this.message, required this.isMine, this.onRetry});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMine,
+    required this.firstInGroup,
+    required this.lastInGroup,
+    this.onRetry,
+  });
 
   final ChatMessage message;
   final bool isMine;
+  final bool firstInGroup;
+  final bool lastInGroup;
   final VoidCallback? onRetry;
 
   @override
@@ -95,38 +150,50 @@ class MessageBubble extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final time = TimeOfDay.fromDateTime(message.createdAt.toLocal()).format(context);
     final failed = message.status == MessageStatus.failed;
+    // Время и статус: у последнего сообщения группы или если что-то не так
+    final showMeta = lastInGroup || message.status != MessageStatus.sent;
+
+    const round = Radius.circular(18);
+    const sharp = Radius.circular(4);
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          margin: EdgeInsets.only(top: firstInGroup ? AppSpacing.sm : 2),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
           decoration: BoxDecoration(
             color: isMine ? scheme.primaryContainer : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.only(
+              topLeft: round,
+              topRight: round,
+              bottomLeft: (!isMine && lastInGroup) ? sharp : round,
+              bottomRight: (isMine && lastInGroup) ? sharp : round,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(message.text),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(time, style: Theme.of(context).textTheme.labelSmall),
-                  if (isMine) ...[
-                    const SizedBox(width: 4),
-                    switch (message.status) {
-                      MessageStatus.pending => const Icon(Icons.schedule, size: 14),
-                      MessageStatus.sent => const Icon(Icons.done, size: 14),
-                      MessageStatus.failed => Icon(Icons.error, size: 14, color: scheme.error),
-                    },
+              if (showMeta) ...[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(time, style: Theme.of(context).textTheme.labelSmall),
+                    if (isMine) ...[
+                      const SizedBox(width: 4),
+                      switch (message.status) {
+                        MessageStatus.pending => const Icon(Icons.schedule, size: 14),
+                        MessageStatus.sent => const Icon(Icons.done, size: 14),
+                        MessageStatus.failed => Icon(Icons.error, size: 14, color: scheme.error),
+                      },
+                    ],
                   ],
-                ],
-              ),
+                ),
+              ],
               if (failed && isMine)
                 InkWell(
                   onTap: onRetry,
