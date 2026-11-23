@@ -19,19 +19,11 @@
 -->
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-1-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-1-light.png">
-    <img alt="Yakkity preview 1" src="docs/images/preview-1-light.png" width="100%">
-  </picture>
-</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-2-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-2-light.png">
-    <img alt="Yakkity preview 2" src="docs/images/preview-2-light.png" width="100%">
-  </picture>
+  <img alt="Yakkity preview 1 (dark theme)" src="docs/images/preview-1-dark.png" width="100%">
+  <br><br>
+  <img alt="Yakkity preview 2 (light theme)" src="docs/images/preview-2-light.png" width="100%">
+  <br><br>
+  <img alt="Yakkity preview 1 (light theme)" src="docs/images/preview-1-light.png" width="100%">
 </p>
 
 ## Contents
