@@ -41,8 +41,7 @@ stack with one language on both sides: a real server with a database, authentica
 and a client that keeps working without a network.
 
 It is not a finished product. Calls and contacts are placeholders, and SMS delivery is replaced by a development
-shortcut (see [below](#how-sign-in-works-and-how-the-code-arrives)). The [limitations](#known-limitations-and-roadmap)
-section lists everything honestly.
+shortcut. The limitations section lists everything honestly.
 
 ## Features
 
