@@ -19,11 +19,11 @@
 -->
 
 <p align="center">
-  <img alt="Превью Yakkity 1 (тёмная тема)" src="docs/images/preview-1-dark.png" width="800" height="450">
+  <img alt="Превью Yakkity 1 (тёмная тема)" src="docs/images/preview-1-dark.png" width="100%">
   <br><br>
-  <img alt="Превью Yakkity 2 (светлая тема)" src="docs/images/preview-2-light.png" width="800" height="450">
+  <img alt="Превью Yakkity 2 (светлая тема)" src="docs/images/preview-2-light.png" width="100%">
   <br><br>
-  <img alt="Превью Yakkity 1 (светлая тема)" src="docs/images/preview-1-light.png" width="800" height="450">
+  <img alt="Превью Yakkity 1 (светлая тема)" src="docs/images/preview-1-light.png" width="100%">
 </p>
 
 ## Демо
