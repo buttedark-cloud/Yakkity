@@ -26,7 +26,11 @@
   <img alt="Превью Yakkity 1 (светлая тема)" src="docs/images/preview-1-light.png" width="100%">
 </p>
 
+## Демо
 
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/d0e20ee8-71bb-41f5-bcd2-f001b0775382" controls width="320"></video>
+</div>
 
 ## Содержание
 
