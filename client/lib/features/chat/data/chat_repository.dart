@@ -1,11 +1,12 @@
 import 'dart:async';
-
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:yakkity/core/network/chat_socket.dart';
 import 'package:yakkity/features/chat/data/local_message_store.dart';
 import 'package:yakkity/features/chat/domain/chat_message.dart';
 import 'package:yakkity/features/chat/domain/chat_peer.dart';
 import 'package:yakkity/features/chat/domain/conversation_summary.dart';
+import 'package:yakkity/features/demo/demo_data.dart';
 
 // Экраны могут импортировать ChatPeer оттуда же, откуда и репозиторий
 export 'package:yakkity/features/chat/domain/chat_peer.dart';
@@ -20,10 +21,12 @@ class ChatRepository {
   /// Если сервер не подтвердил сообщение за это время, считаем его неотправленным
   static const _ackTimeout = Duration(seconds: 10);
 
+  final _random = Random();
   int? _me;
   StreamSubscription<SocketEvent>? _eventsSub;
   StreamSubscription<SocketStatus>? _statusSub;
   final _ackTimers = <String, Timer>{};
+  final _demoTimers = <Timer>{};
   final _peerRequested = <int>{};
 
   Stream<SocketStatus> get connection => _socket.status;
@@ -52,6 +55,10 @@ class ChatRepository {
       t.cancel();
     }
     _ackTimers.clear();
+    for (final t in _demoTimers) {
+      t.cancel();
+    }
+    _demoTimers.clear();
     _peerRequested.clear();
     await _socket.disconnect();
   }
@@ -68,34 +75,59 @@ class ChatRepository {
         final clientId = json['clientId'] as String?;
         if (clientId == null) return;
         _ackTimers.remove(clientId)?.cancel();
-        _store.confirmSent(clientId: clientId, serverMessage: ChatMessage.fromServerJson(json));
+        _store.confirmSent(
+          clientId: clientId,
+          serverMessage: ChatMessage.fromServerJson(json),
+        );
     }
   }
 
   /// Экран слушает только эти потоки, то есть базу
-  Stream<List<ChatMessage>> watch(int me, int peerId) => _store.watchConversation(me, peerId);
+  Stream<List<ChatMessage>> watch(int me, int peerId) =>
+      _store.watchConversation(me, peerId);
 
-  Stream<List<ConversationSummary>> watchConversations(int me) => _store.watchConversations(me);
+  Stream<List<ConversationSummary>> watchConversations(int me) =>
+      _store.watchConversations(me);
 
   Stream<Map<int, ChatPeer>> watchPeers() => _store.watchPeers();
+
   Stream<Map<int, int>> watchReads(int me) => _store.watchReads(me);
 
-  Future<void> markRead(int me, int peerId, int upToMs) => _store.markRead(me, peerId, upToMs);
+  Stream<({int total, int mine})> watchMessageCounts(int me) =>
+      _store.watchMessageCounts(me);
 
-  Future<List<ChatMessage>> searchMessages(int me, String query) => _store.searchMessages(me, query);
-  Stream<({int total, int mine})> watchMessageCounts(int me) => _store.watchMessageCounts(me);
+  Future<void> markRead(int me, int peerId, int upToMs) =>
+      _store.markRead(me, peerId, upToMs);
+
+  Future<List<ChatMessage>> searchMessages(int me, String query) =>
+      _store.searchMessages(me, query);
 
   /// Подтянуть историю с сервера и записать в базу
   Future<void> refreshHistory(int peerId) async {
-    final response = await _dio.get('/chat/messages/$peerId', queryParameters: {'limit': 100});
+    if (DemoData.isDemo(peerId)) return; // демо-люди живут только на устройстве
+    final response = await _dio
+        .get('/chat/messages/$peerId', queryParameters: {'limit': 100});
     final rows = (response.data['data'] as List).cast<Map<String, dynamic>>();
     for (final row in rows) {
       await _store.saveFromServer(ChatMessage.fromServerJson(row));
     }
   }
 
-  Future<void> send({required int me, required int peerId, required String text}) async {
-    final message = ChatMessage.pending(senderId: me, receiverId: peerId, text: text);
+  Future<void> send({
+    required int me,
+    required int peerId,
+    required String text,
+  }) async {
+    final message =
+        ChatMessage.pending(senderId: me, receiverId: peerId, text: text);
+
+    // Демо-человеку сообщение сразу «доставлено», и он что-нибудь отвечает
+    if (DemoData.isDemo(peerId)) {
+      await _store.put(message.copyWith(status: MessageStatus.sent));
+      _scheduleDemoReply(me, peerId);
+      return;
+    }
+
     await _store.put(message); // сообщение появляется на экране сразу
     _deliver(message);
   }
@@ -106,7 +138,11 @@ class ChatRepository {
   }
 
   void _deliver(ChatMessage message) {
-    final sent = _socket.send('send_message', {'to': message.receiverId, 'text': message.text, 'clientId': message.clientId});
+    final sent = _socket.send('send_message', {
+      'to': message.receiverId,
+      'text': message.text,
+      'clientId': message.clientId,
+    });
 
     if (!sent) {
       _store.markFailed(message.clientId);
@@ -118,6 +154,28 @@ class ChatRepository {
       _ackTimers.remove(message.clientId);
       _store.markFailed(message.clientId);
     });
+  }
+
+  void _scheduleDemoReply(int me, int peerId) {
+    final person = DemoData.byId(peerId);
+    final pool = (person != null && person.replies.isNotEmpty)
+        ? person.replies
+        : DemoData.genericReplies;
+    final text = pool[_random.nextInt(pool.length)];
+
+    late final Timer timer;
+    timer = Timer(Duration(milliseconds: 1500 + _random.nextInt(2000)), () {
+      _demoTimers.remove(timer);
+      _store.put(ChatMessage(
+        clientId: 'demo-reply-${DateTime.now().microsecondsSinceEpoch}',
+        senderId: peerId,
+        receiverId: me,
+        text: text,
+        createdAt: DateTime.now().toUtc(),
+        status: MessageStatus.sent,
+      ));
+    });
+    _demoTimers.add(timer);
   }
 
   Future<void> _resendUnsent() async {
@@ -134,6 +192,7 @@ class ChatRepository {
   /// Узнать имя и номер собеседника по id (раз за запуск приложения).
   /// Результат падает в базу, а список чатов обновится сам.
   Future<void> ensurePeer(int id) async {
+    if (DemoData.isDemo(id)) return; // демо-люди уже в базе
     if (_peerRequested.contains(id)) return;
     _peerRequested.add(id);
     try {
@@ -148,8 +207,10 @@ class ChatRepository {
   /// Найти пользователя по номеру. null, если такого нет.
   Future<ChatPeer?> findUser(String phone) async {
     try {
-      final response = await _dio.get('/chat/users/lookup', queryParameters: {'phone': phone});
-      final peer = ChatPeer.fromJson(response.data['data'] as Map<String, dynamic>);
+      final response = await _dio
+          .get('/chat/users/lookup', queryParameters: {'phone': phone});
+      final peer =
+          ChatPeer.fromJson(response.data['data'] as Map<String, dynamic>);
       await _store.putPeer(peer);
       return peer;
     } on DioException catch (e) {

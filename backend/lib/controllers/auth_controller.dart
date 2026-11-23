@@ -8,7 +8,8 @@ class AuthController extends Controller {
   /// Убираем пробелы, дефисы и скобки: "+996 (700) 12-34-56" -> "+996700123456"
   String _normalizePhone(String raw) => raw.replaceAll(RegExp(r'[\s\-()]'), '');
 
-  bool _isValidPhone(String phone) => RegExp(r'^\+?[0-9]{8,15}$').hasMatch(phone);
+  bool _isValidPhone(String phone) =>
+      RegExp(r'^\+?[0-9]{8,15}$').hasMatch(phone);
 
   /// id текущего пользователя из токена (null, если токен плохой)
   int? _currentUserId() {
@@ -98,13 +99,13 @@ class AuthController extends Controller {
 
       // Ищем пользователя; если нет, создаём (так работает и вход, и регистрация)
       var users = await DB.query(
-        "SELECT id, phone, name FROM users WHERE phone = ?",
+        "SELECT id, phone, name, status FROM users WHERE phone = ?",
         positionalParams: [phone],
       );
       if (users.isEmpty) {
         users = await DB.query(
           "INSERT INTO users (phone, created_at) VALUES (?, NOW()) "
-          "RETURNING id, phone, name",
+          "RETURNING id, phone, name, status",
           positionalParams: [phone],
         );
       }
@@ -123,6 +124,7 @@ class AuthController extends Controller {
             "id": user['id'],
             "phone": user['phone'],
             "name": user['name'],
+            "status": user['status'],
           },
         },
       });
@@ -144,7 +146,7 @@ class AuthController extends Controller {
     }
 
     final users = await DB.query(
-      "SELECT id, phone, name, created_at FROM users WHERE id = ?",
+      "SELECT id, phone, name, status, created_at FROM users WHERE id = ?",
       positionalParams: [userId],
     );
     if (users.isEmpty) {
@@ -157,7 +159,7 @@ class AuthController extends Controller {
     return res.json({"status": "success", "data": users.first});
   }
 
-  /// PUT /auth/profile   { "name": "Вероника" }
+  /// PUT /auth/profile   { "name": "..." } и/или { "status": "..." }
   Future<Response> updateProfile() async {
     final userId = _currentUserId();
     if (userId == null) {
@@ -169,17 +171,47 @@ class AuthController extends Controller {
 
     try {
       final body = await req.json();
-      final name = body['name']?.toString().trim() ?? '';
-      if (name.isEmpty || name.length > 50) {
+      final sets = <String>[];
+      final params = <dynamic>[];
+
+      if (body.containsKey('name')) {
+        final name = body['name']?.toString().trim() ?? '';
+        // runes: считаем настоящие символы, смайлик = 1 символ, как в приложении
+        if (name.isEmpty || name.runes.length > 50) {
+          return res.status(422).json({
+            "status": "error",
+            "message": "Name must be 1 to 50 characters.",
+          });
+        }
+        sets.add('name = ?');
+        params.add(name);
+      }
+
+      if (body.containsKey('status')) {
+        // Пустая строка означает «статус убран»
+        final status = body['status']?.toString().trim() ?? '';
+        if (status.runes.length > 100) {
+          return res.status(422).json({
+            "status": "error",
+            "message": "Status must be up to 100 characters.",
+          });
+        }
+        sets.add('status = ?');
+        params.add(status);
+      }
+
+      if (sets.isEmpty) {
         return res.status(422).json({
           "status": "error",
-          "message": "Name must be 1 to 50 characters.",
+          "message": "Nothing to update.",
         });
       }
 
+      params.add(userId);
       final users = await DB.query(
-        "UPDATE users SET name = ? WHERE id = ? RETURNING id, phone, name",
-        positionalParams: [name, userId],
+        "UPDATE users SET ${sets.join(', ')} WHERE id = ? "
+        "RETURNING id, phone, name, status",
+        positionalParams: params,
       );
       if (users.isEmpty) {
         return res.status(404).json({

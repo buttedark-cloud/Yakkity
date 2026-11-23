@@ -1,5 +1,4 @@
 import 'package:sembast/sembast.dart';
-
 import 'package:yakkity/features/chat/domain/chat_message.dart';
 import 'package:yakkity/features/chat/domain/chat_peer.dart';
 import 'package:yakkity/features/chat/domain/conversation_summary.dart';
@@ -7,21 +6,30 @@ import 'package:yakkity/features/chat/domain/conversation_summary.dart';
 class LocalMessageStore {
   LocalMessageStore(this._db);
   final Database _db;
+
   final _store = stringMapStoreFactory.store('messages');
+  final _peers = intMapStoreFactory.store('peers');
+  final _reads = StoreRef<String, int>('reads');
 
   /// Переписка между me и peer, новые сообщения первыми.
   /// Учитываем оба направления; me входит в запрос, так что
   /// несколько аккаунтов на одном устройстве друг друга не видят.
   Finder _conversation(int me, int peer) => Finder(
-    filter: Filter.or([
-      Filter.and([Filter.equals('senderId', me), Filter.equals('receiverId', peer)]),
-      Filter.and([Filter.equals('senderId', peer), Filter.equals('receiverId', me)]),
-    ]),
-    sortOrders: [SortOrder('createdAt', false)],
-  );
+        filter: Filter.or([
+          Filter.and([
+            Filter.equals('senderId', me),
+            Filter.equals('receiverId', peer),
+          ]),
+          Filter.and([
+            Filter.equals('senderId', peer),
+            Filter.equals('receiverId', me),
+          ]),
+        ]),
+        sortOrders: [SortOrder('createdAt', false)],
+      );
 
   /// Живой поток: выдаёт новый список при любом изменении в базе.
-  /// Именно его будет слушать экран чата.
+  /// Именно его слушает экран чата.
   Stream<List<ChatMessage>> watchConversation(int me, int peer) => _store
       .query(finder: _conversation(me, peer))
       .onSnapshots(_db)
@@ -33,65 +41,89 @@ class LocalMessageStore {
   }
 
   /// Сохранить сообщение как есть (например, только что написанное)
-  Future<void> put(ChatMessage message) => _store.record(message.clientId).put(_db, message.toMap());
+  Future<void> put(ChatMessage message) =>
+      _store.record(message.clientId).put(_db, message.toMap());
 
   /// Сообщение пришло с сервера (из истории или по WebSocket).
   /// Если такое serverId у нас уже есть, обновляем запись, а не плодим дубль.
-  Future<void> saveFromServer(ChatMessage message) => _db.transaction((txn) async {
-    final existing = await _store.findFirst(txn, finder: Finder(filter: Filter.equals('serverId', message.serverId)));
-    if (existing != null) {
-      await _store.record(existing.key).put(txn, message.copyWith(clientId: existing.key).toMap());
-    } else {
-      await _store.record(message.clientId).put(txn, message.toMap());
-    }
-  });
+  Future<void> saveFromServer(ChatMessage message) =>
+      _db.transaction((txn) async {
+        final existing = await _store.findFirst(txn,
+            finder: Finder(filter: Filter.equals('serverId', message.serverId)));
+        if (existing != null) {
+          await _store
+              .record(existing.key)
+              .put(txn, message.copyWith(clientId: existing.key).toMap());
+        } else {
+          await _store.record(message.clientId).put(txn, message.toMap());
+        }
+      });
 
   /// Сервер подтвердил наше сообщение: добавляем serverId и время с сервера
-  Future<void> confirmSent({required String clientId, required ChatMessage serverMessage}) => _db.transaction((txn) async {
-    // На случай, если история успела принести то же сообщение раньше
-    final duplicates = await _store.find(txn, finder: Finder(filter: Filter.equals('serverId', serverMessage.serverId)));
-    for (final d in duplicates) {
-      if (d.key != clientId) await _store.record(d.key).delete(txn);
-    }
-    await _store.record(clientId).put(txn, serverMessage.copyWith(clientId: clientId, status: MessageStatus.sent).toMap());
-  });
+  Future<void> confirmSent({
+    required String clientId,
+    required ChatMessage serverMessage,
+  }) =>
+      _db.transaction((txn) async {
+        // На случай, если история успела принести то же сообщение раньше
+        final duplicates = await _store.find(txn,
+            finder: Finder(
+                filter: Filter.equals('serverId', serverMessage.serverId)));
+        for (final d in duplicates) {
+          if (d.key != clientId) await _store.record(d.key).delete(txn);
+        }
+        await _store.record(clientId).put(
+              txn,
+              serverMessage
+                  .copyWith(clientId: clientId, status: MessageStatus.sent)
+                  .toMap(),
+            );
+      });
 
-  Future<void> markFailed(String clientId) => _store.record(clientId).update(_db, {'status': MessageStatus.failed.name});
+  Future<void> markFailed(String clientId) => _store
+      .record(clientId)
+      .update(_db, {'status': MessageStatus.failed.name});
 
-  Future<void> markPending(String clientId) => _store.record(clientId).update(_db, {'status': MessageStatus.pending.name});
+  Future<void> markPending(String clientId) => _store
+      .record(clientId)
+      .update(_db, {'status': MessageStatus.pending.name});
 
   /// Мои неотправленные сообщения (для повторной отправки)
   Future<List<ChatMessage>> unsent(int me) async {
-    final snaps = await _store.find(
-      _db,
-      finder: Finder(
-        filter: Filter.and([Filter.equals('senderId', me), Filter.notEquals('status', MessageStatus.sent.name)]),
-        sortOrders: [SortOrder('createdAt')],
-      ),
-    );
+    final snaps = await _store.find(_db,
+        finder: Finder(
+          filter: Filter.and([
+            Filter.equals('senderId', me),
+            Filter.notEquals('status', MessageStatus.sent.name),
+          ]),
+          sortOrders: [SortOrder('createdAt')],
+        ));
     return snaps.map((s) => ChatMessage.fromMap(s.value)).toList();
   }
 
   // ---- Собеседники ----
-  final _peers = intMapStoreFactory.store('peers');
-
-  Future<void> putPeer(ChatPeer peer) => _peers.record(peer.id).put(_db, peer.toMap());
+  Future<void> putPeer(ChatPeer peer) =>
+      _peers.record(peer.id).put(_db, peer.toMap());
 
   Stream<Map<int, ChatPeer>> watchPeers() =>
-      _peers.query().onSnapshots(_db).map((snaps) => {for (final s in snaps) s.key: ChatPeer.fromMap(s.value)});
+      _peers.query().onSnapshots(_db).map((snaps) => {
+            for (final s in snaps) s.key: ChatPeer.fromMap(s.value),
+          });
 
   // ---- Список чатов ----
   /// Из всех моих сообщений берём по одному последнему на собеседника
   /// и запоминаем время всех входящих (для подсчёта непрочитанных).
   Stream<List<ConversationSummary>> watchConversations(int me) => _store
-      .query(
-        finder: Finder(
-          filter: Filter.or([Filter.equals('senderId', me), Filter.equals('receiverId', me)]),
-          sortOrders: [SortOrder('createdAt', false)],
-        ),
-      )
-      .onSnapshots(_db)
-      .map((snaps) {
+          .query(
+              finder: Finder(
+        filter: Filter.or([
+          Filter.equals('senderId', me),
+          Filter.equals('receiverId', me),
+        ]),
+        sortOrders: [SortOrder('createdAt', false)],
+      ))
+          .onSnapshots(_db)
+          .map((snaps) {
         final last = <int, ChatMessage>{};
         final incoming = <int, List<int>>{};
         for (final s in snaps) {
@@ -102,38 +134,46 @@ class LocalMessageStore {
             (incoming[peerId] ??= []).add(m.createdAt.millisecondsSinceEpoch);
           }
         }
-        return [for (final e in last.entries) ConversationSummary(peerId: e.key, last: e.value, incoming: incoming[e.key] ?? const [])];
+        return [
+          for (final e in last.entries)
+            ConversationSummary(
+              peerId: e.key,
+              last: e.value,
+              incoming: incoming[e.key] ?? const [],
+            ),
+        ];
       });
 
   // ---- Отметки «прочитано до» ----
-  final _reads = StoreRef<String, int>('reads');
+  Stream<Map<int, int>> watchReads(int me) =>
+      _reads.query().onSnapshots(_db).map((snaps) => {
+            for (final s in snaps)
+              if (s.key.startsWith('$me:'))
+                int.parse(s.key.substring('$me:'.length)): s.value,
+          });
 
-  Stream<Map<int, int>> watchReads(int me) => _reads
-      .query()
-      .onSnapshots(_db)
-      .map(
-        (snaps) => {
-          for (final s in snaps)
-            if (s.key.startsWith('$me:')) int.parse(s.key.substring('$me:'.length)): s.value,
-        },
-      );
-
-  Future<void> markRead(int me, int peerId, int upToMs) => _db.transaction((txn) async {
-    final key = '$me:$peerId';
-    final current = await _reads.record(key).get(txn) ?? 0;
-    if (upToMs > current) await _reads.record(key).put(txn, upToMs);
-  });
+  Future<void> markRead(int me, int peerId, int upToMs) =>
+      _db.transaction((txn) async {
+        final key = '$me:$peerId';
+        final current = await _reads.record(key).get(txn) ?? 0;
+        if (upToMs > current) await _reads.record(key).put(txn, upToMs);
+      });
 
   // ---- Поиск по тексту сообщений ----
-  Future<List<ChatMessage>> searchMessages(int me, String query, {int limit = 30}) async {
+  Future<List<ChatMessage>> searchMessages(int me, String query,
+      {int limit = 30}) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return [];
     final snaps = await _store.find(
       _db,
       finder: Finder(
         filter: Filter.and([
-          Filter.or([Filter.equals('senderId', me), Filter.equals('receiverId', me)]),
-          Filter.custom((record) => ((record['text'] as String?) ?? '').toLowerCase().contains(q)),
+          Filter.or([
+            Filter.equals('senderId', me),
+            Filter.equals('receiverId', me),
+          ]),
+          Filter.custom((record) =>
+              ((record['text'] as String?) ?? '').toLowerCase().contains(q)),
         ]),
         sortOrders: [SortOrder('createdAt', false)],
         limit: limit,
@@ -142,9 +182,48 @@ class LocalMessageStore {
     return snaps.map((s) => ChatMessage.fromMap(s.value)).toList();
   }
 
+  // ---- Статистика для профиля ----
   /// Сколько сообщений в моих переписках и сколько из них мои
   Stream<({int total, int mine})> watchMessageCounts(int me) => _store
-      .query(finder: Finder(filter: Filter.or([Filter.equals('senderId', me), Filter.equals('receiverId', me)])))
+      .query(
+          finder: Finder(
+        filter: Filter.or([
+          Filter.equals('senderId', me),
+          Filter.equals('receiverId', me),
+        ]),
+      ))
       .onSnapshots(_db)
-      .map((snaps) => (total: snaps.length, mine: snaps.where((s) => s.value['senderId'] == me).length));
+      .map((snaps) => (
+            total: snaps.length,
+            mine: snaps.where((s) => s.value['senderId'] == me).length,
+          ));
+
+  // ---- Демо-данные для превью ----
+  Future<void> seedDemo({
+    required int me,
+    required List<ChatPeer> peers,
+    required List<ChatMessage> messages,
+    required Map<int, int> reads,
+  }) =>
+      _db.transaction((txn) async {
+        for (final p in peers) {
+          await _peers.record(p.id).put(txn, p.toMap());
+        }
+        for (final m in messages) {
+          await _store.record(m.clientId).put(txn, m.toMap());
+        }
+        for (final e in reads.entries) {
+          await _reads.record('$me:${e.key}').put(txn, e.value);
+        }
+      });
+
+  /// Удаляет демо-людей и все их сообщения. Настоящие чаты не трогает.
+  Future<void> removeDemo(int me, Iterable<int> peerIds) =>
+      _db.transaction((txn) async {
+        for (final id in peerIds) {
+          await _store.delete(txn, finder: _conversation(me, id));
+          await _peers.record(id).delete(txn);
+          await _reads.record('$me:$id').delete(txn);
+        }
+      });
 }

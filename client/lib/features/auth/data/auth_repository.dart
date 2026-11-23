@@ -1,17 +1,27 @@
 import 'package:dio/dio.dart';
-
 import 'package:yakkity/core/storage/token_storage.dart';
 
 class AuthUser {
-  const AuthUser({required this.id, required this.phone, this.name});
+  const AuthUser({
+    required this.id,
+    required this.phone,
+    this.name,
+    this.status,
+  });
   final int id;
   final String phone;
   final String? name;
+  final String? status;
 
   bool get hasName => name != null && name!.trim().isNotEmpty;
+  bool get hasStatus => status != null && status!.trim().isNotEmpty;
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) =>
-      AuthUser(id: json['id'] as int, phone: json['phone'] as String, name: json['name'] as String?);
+  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
+        id: json['id'] as int,
+        phone: json['phone'] as String,
+        name: json['name'] as String?,
+        status: json['status'] as String?,
+      );
 }
 
 class AuthRepository {
@@ -25,13 +35,9 @@ class AuthRepository {
     return response.data['devCode'] as String?;
   }
 
-  Future<AuthUser> updateName(String name) async {
-    final response = await _dio.put('/auth/profile', data: {'name': name});
-    return AuthUser.fromJson(response.data['data'] as Map<String, dynamic>);
-  }
-
   Future<AuthUser> verify(String phone, String code) async {
-    final response = await _dio.post('/auth/verify', data: {'phone': phone, 'code': code});
+    final response =
+        await _dio.post('/auth/verify', data: {'phone': phone, 'code': code});
     final data = response.data['data'] as Map<String, dynamic>;
     await _storage.save(data['token'] as String);
     return AuthUser.fromJson(data['user'] as Map<String, dynamic>);
@@ -48,6 +54,15 @@ class AuthRepository {
       if (e.response?.statusCode == 401) return null; // токен просрочен
       rethrow; // например, нет связи: это не повод разлогинивать
     }
+  }
+
+  /// Меняет имя и/или статус. Пустой статус означает «убрать статус».
+  Future<AuthUser> updateProfile({String? name, String? status}) async {
+    final response = await _dio.put('/auth/profile', data: {
+      if (name != null) 'name': name,
+      if (status != null) 'status': status,
+    });
+    return AuthUser.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
   Future<void> logout() => _storage.clear();

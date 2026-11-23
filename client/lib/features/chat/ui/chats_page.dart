@@ -74,7 +74,22 @@ class _ChatsPageState extends State<ChatsPage> {
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.md),
-                child: IconButton.filled(onPressed: _newChat, tooltip: 'Новый чат', icon: const Icon(Icons.edit_outlined)),
+                child: IconButton.filled(
+                  onPressed: _newChat,
+                  tooltip: 'Новый чат',
+
+                  icon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.network(
+                        'https://img.icons8.ru/?size=100&id=114092&format=png&color=ffffff',
+                        width: 30,
+                        height: 30,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -178,8 +193,8 @@ class _ChatsPageState extends State<ChatsPage> {
           const _SectionHeader('КОНТАКТЫ'),
           for (final p in contacts)
             ListTile(
-              leading: UserAvatar(label: p.displayName, colorSeed: p.id),
-              title: Text(p.displayName),
+              leading: UserAvatar(label: p.displayName, colorSeed: p.id, assetPath: p.avatarAsset),
+              title: Text(p.displayName, maxLines: 2, overflow: TextOverflow.ellipsis),
               subtitle: p.phone.isEmpty ? null : Text(p.phone),
               onTap: () => _openChat(p),
             ),
@@ -241,6 +256,8 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+/// Кружок со счётчиком. Без выравнивания внутри: иначе он растягивается
+/// на всю ширину и ломает строку чата.
 class _CountBadge extends StatelessWidget {
   const _CountBadge({required this.count, this.soft = false});
   final int count;
@@ -261,6 +278,7 @@ class _CountBadge extends StatelessWidget {
     );
   }
 }
+
 /// Сегодня показываем время, остальное словами: «Вчера», «5 ноября»
 String _timeLabel(BuildContext context, DateTime utc) {
   final label = dayLabel(utc);
@@ -287,7 +305,7 @@ class _ConversationTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
-      leading: UserAvatar(label: peer.displayName, colorSeed: peer.id),
+      leading: UserAvatar(label: peer.displayName, colorSeed: peer.id, assetPath: peer.avatarAsset),
       title: Text(
         peer.displayName,
         maxLines: 1,
@@ -324,7 +342,7 @@ class _MessageResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: () => onTap(peer),
-      leading: UserAvatar(label: peer.displayName, colorSeed: peer.id),
+      leading: UserAvatar(label: peer.displayName, colorSeed: peer.id, assetPath: peer.avatarAsset),
       title: Text(peer.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(message.text, maxLines: 2, overflow: TextOverflow.ellipsis),
       trailing: Text(_timeLabel(context, message.createdAt), style: Theme.of(context).textTheme.labelSmall),

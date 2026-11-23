@@ -27,8 +27,14 @@ class YakkityApp extends StatelessWidget {
         BlocProvider(create: (_) => AuthCubit(getIt<AuthRepository>(), getIt<SessionEvents>())..start()),
       ],
       child: BlocBuilder<ThemeCubit, ThemeMode>(
-        builder: (context, mode) =>
-            MaterialApp(title: 'Yakkity', theme: AppTheme.light(), darkTheme: AppTheme.dark(), themeMode: mode, home: const AuthGate()),
+        builder: (context, mode) => MaterialApp(
+          title: 'Yakkity',
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: mode,
+          debugShowCheckedModeBanner: false,
+          home: const AuthGate(),
+        ),
       ),
     );
   }

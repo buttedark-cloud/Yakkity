@@ -1,4 +1,4 @@
-const FLINT_CACHE = 'flint-ui-1794495488254';
+const FLINT_CACHE = 'flint-ui-1795166624811';
 const FLINT_MANIFEST_URL = '/assets/js/flint-ui/manifest.json';
 
 async function flintCacheUrls(urls) {

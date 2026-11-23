@@ -1,11 +1,9 @@
 import 'dart:async';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'package:yakkity/core/network/api_error.dart';
 import 'package:yakkity/core/network/session_events.dart';
-import 'package:yakkity/features/auth/data/auth_repository.dart';
 import 'package:yakkity/features/auth/cubit/auth_state.dart';
+import 'package:yakkity/features/auth/data/auth_repository.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit(this._repo, SessionEvents session) : super(const AuthState()) {
@@ -21,12 +19,13 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final user = await _repo.restoreSession();
       if (state.status != AuthStatus.checking) return; // уже решили иначе
-      emit(
-        user == null ? state.copyWith(status: AuthStatus.unauthenticated) : state.copyWith(status: AuthStatus.authenticated, user: user),
-      );
+      emit(user == null
+          ? state.copyWith(status: AuthStatus.unauthenticated)
+          : state.copyWith(status: AuthStatus.authenticated, user: user));
     } catch (e) {
       if (state.status != AuthStatus.checking) return;
-      emit(state.copyWith(status: AuthStatus.unauthenticated, error: apiErrorMessage(e)));
+      emit(state.copyWith(
+          status: AuthStatus.unauthenticated, error: apiErrorMessage(e)));
     }
   }
 
@@ -52,10 +51,15 @@ class AuthCubit extends Cubit<AuthState> {
 
   void backToPhone() => emit(state.copyWith(step: AuthStep.phone));
 
-  Future<void> saveName(String name) async {
+  Future<void> saveName(String name) => _saveProfile(name: name);
+
+  /// Пустая строка убирает статус
+  Future<void> saveStatus(String status) => _saveProfile(status: status);
+
+  Future<void> _saveProfile({String? name, String? status}) async {
     emit(state.copyWith(loading: true));
     try {
-      final user = await _repo.updateName(name);
+      final user = await _repo.updateProfile(name: name, status: status);
       emit(state.copyWith(user: user));
     } catch (e) {
       emit(state.copyWith(error: apiErrorMessage(e)));
@@ -67,7 +71,10 @@ class AuthCubit extends Cubit<AuthState> {
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 
-  void _onSessionExpired() => emit(const AuthState(status: AuthStatus.unauthenticated, error: 'Сессия истекла, войди снова'));
+  void _onSessionExpired() => emit(const AuthState(
+        status: AuthStatus.unauthenticated,
+        error: 'Сессия истекла, войди снова',
+      ));
 
   @override
   Future<void> close() {

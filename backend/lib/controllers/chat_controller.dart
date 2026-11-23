@@ -12,22 +12,27 @@ class ChatController extends Controller {
   /// GET /chat/users/lookup?phone=%2B996700999888
   Future<Response> findUser() async {
     if (_currentUserId() == null) {
-      return res.status(401).json({"status": "error", "message": "Authentication required."});
+      return res.status(401).json(
+          {"status": "error", "message": "Authentication required."});
     }
 
     // Оставляем только цифры и ставим + в начале (в URL плюс превращается в пробел)
     final raw = req.query['phone']?.toString() ?? '';
     final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) {
-      return res.status(422).json({"status": "error", "message": "Phone is required."});
+      return res
+          .status(422)
+          .json({"status": "error", "message": "Phone is required."});
     }
 
     final users = await DB.query(
-      "SELECT id, phone, name FROM users WHERE phone = ?",
+      "SELECT id, phone, name, status FROM users WHERE phone = ?",
       positionalParams: ['+$digits'],
     );
     if (users.isEmpty) {
-      return res.status(404).json({"status": "error", "message": "User not found."});
+      return res
+          .status(404)
+          .json({"status": "error", "message": "User not found."});
     }
     return res.json({"status": "success", "data": users.first});
   }
@@ -37,16 +42,21 @@ class ChatController extends Controller {
   Future<Response> history() async {
     final me = _currentUserId();
     if (me == null) {
-      return res.status(401).json({"status": "error", "message": "Authentication required."});
+      return res.status(401).json(
+          {"status": "error", "message": "Authentication required."});
     }
 
     final otherId = int.tryParse(req.params['userId'] ?? '');
     if (otherId == null) {
-      return res.status(400).json({"status": "error", "message": "Invalid user id."});
+      return res
+          .status(400)
+          .json({"status": "error", "message": "Invalid user id."});
     }
 
     // limit проверяем и ограничиваем числом, поэтому вставлять его в запрос безопасно
-    final limit = (int.tryParse(req.query['limit']?.toString() ?? '') ?? 50).clamp(1, 100).toInt();
+    final limit = (int.tryParse(req.query['limit']?.toString() ?? '') ?? 50)
+        .clamp(1, 100)
+        .toInt();
 
     final rows = await DB.query(
       "SELECT id, sender_id, receiver_id, text, created_at FROM messages "
@@ -58,23 +68,28 @@ class ChatController extends Controller {
     return res.json({"status": "success", "data": rows});
   }
 
-  /// GET /chat/peers/:id   (узнать номер и имя по id)
+  /// GET /chat/peers/:id   (узнать номер, имя и статус по id)
   Future<Response> getPeer() async {
     if (_currentUserId() == null) {
-      return res.status(401).json({"status": "error", "message": "Authentication required."});
+      return res.status(401).json(
+          {"status": "error", "message": "Authentication required."});
     }
 
     final id = int.tryParse(req.params['id'] ?? '');
     if (id == null) {
-      return res.status(400).json({"status": "error", "message": "Invalid user id."});
+      return res
+          .status(400)
+          .json({"status": "error", "message": "Invalid user id."});
     }
 
     final users = await DB.query(
-      "SELECT id, phone, name FROM users WHERE id = ?",
+      "SELECT id, phone, name, status FROM users WHERE id = ?",
       positionalParams: [id],
     );
     if (users.isEmpty) {
-      return res.status(404).json({"status": "error", "message": "User not found."});
+      return res
+          .status(404)
+          .json({"status": "error", "message": "User not found."});
     }
     return res.json({"status": "success", "data": users.first});
   }

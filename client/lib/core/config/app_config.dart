@@ -1,16 +1,12 @@
-import 'package:flutter/foundation.dart';
-
 class AppConfig {
-  // Для запуска на телефоне: flutter run --dart-define=API_HOST=192.168.1.5
+  // Для запуска по Wi-Fi можно указать адрес ПК:
+  // flutter run --dart-define=API_HOST=192.168.0.12
   static const _hostOverride = String.fromEnvironment('API_HOST');
   static const int port = 3000;
 
-  static String get host {
-    if (_hostOverride.isNotEmpty) return _hostOverride;
-    if (kIsWeb) return 'localhost';
-    // У Android-эмулятора localhost означает сам эмулятор, а не ПК
-    return defaultTargetPlatform == TargetPlatform.android ? '10.0.2.2' : 'localhost';
-  }
+  // По умолчанию localhost: в Chrome он работает сам,
+  // а на Android (телефон и эмулятор) работает через `adb reverse`.
+  static String get host => _hostOverride.isNotEmpty ? _hostOverride : 'localhost';
 
   static String get httpBase => 'http://$host:$port';
   static String get wsBase => 'ws://$host:$port';

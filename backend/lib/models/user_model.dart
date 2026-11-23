@@ -5,6 +5,7 @@ class User extends Model<User> {
 
   String get phone => getAttribute('phone');
   String? get name => getAttribute('name');
+  String? get status => getAttribute('status');
   DateTime? get createdAt => getAttribute('created_at');
 
   @override
@@ -14,6 +15,7 @@ class User extends Model<User> {
           Column(name: 'id', type: ColumnType.integer, isPrimaryKey: true, isAutoIncrement: true),
           Column(name: 'phone', type: ColumnType.string, length: 20, isUnique: true),
           Column(name: 'name', type: ColumnType.string, length: 50, isNullable: true),
+          Column(name: 'status', type: ColumnType.string, length: 100, isNullable: true),
           Column(name: 'created_at', type: ColumnType.datetime, isNullable: true),
         ],
       );
