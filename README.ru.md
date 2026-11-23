@@ -22,17 +22,13 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-1-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-1-light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-2-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-2-light.png">
     <img alt="Превью Yakkity 1" src="docs/images/preview-1-light.png" width="100%">
   </picture>
 </p>
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-2-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-2-light.png">
-    <img alt="Превью Yakkity 2" src="docs/images/preview-2-light.png" width="100%">
-  </picture>
-</p>
+
 
 ## Содержание
 
