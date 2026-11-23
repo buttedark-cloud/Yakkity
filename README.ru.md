@@ -19,13 +19,11 @@
 -->
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-1-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-1-light.png">
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/preview-2-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/images/preview-2-light.png">
-    <img alt="Превью Yakkity 1" src="docs/images/preview-1-light.png" width="100%">
-  </picture>
+  <img alt="Превью Yakkity 1 (тёмная тема)" src="docs/images/preview-1-dark.png" width="100%">
+  <br><br>
+  <img alt="Превью Yakkity 2 (светлая тема)" src="docs/images/preview-2-light.png" width="100%">
+  <br><br>
+  <img alt="Превью Yakkity 1 (светлая тема)" src="docs/images/preview-1-light.png" width="100%">
 </p>
 
 
