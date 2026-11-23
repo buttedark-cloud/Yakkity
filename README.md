@@ -32,22 +32,7 @@
   <video src="https://github.com/user-attachments/assets/d0e20ee8-71bb-41f5-bcd2-f001b0775382" controls width="320"></video>
 </div>
 
-## Contents
 
-- [About](#about)
-- [Features](#features)
-- [Tech stack](#tech-stack)
-- [Architecture](#architecture)
-- [How sign-in works and how the code arrives](#how-sign-in-works-and-how-the-code-arrives)
-- [How messages travel](#how-messages-travel)
-- [API reference](#api-reference)
-- [Project structure](#project-structure)
-- [Getting started](#getting-started)
-- [Configuration](#configuration)
-- [Demo mode and demo files](#demo-mode-and-demo-files)
-- [Tests](#tests)
-- [Design decisions](#design-decisions)
-- [Known limitations and roadmap](#known-limitations-and-roadmap)
 
 ## About
 
